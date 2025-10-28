@@ -47,9 +47,13 @@ const App = () => {
     handleUserCart();
   }, [user, dispatch]);
 
-  // ✅ Save cart changes if user logged in
+  // ✅ Save cart changes if user logged in (debounced to avoid spamming requests)
   useEffect(() => {
-    if (user) syncCartToSupabase(user.id, cartItems);
+    if (!user) return;
+    const handle = setTimeout(() => {
+      syncCartToSupabase(user.id, cartItems);
+    }, 400);
+    return () => clearTimeout(handle);
   }, [cartItems, user]);
 
   return (
