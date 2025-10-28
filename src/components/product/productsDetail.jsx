@@ -13,7 +13,7 @@ import {
   syncCartToSupabase
 } from "../cart/cartSlice";
 import Comments from "./Comment";
-import ErrorBoundary from "./ErrorBoundary";
+
 
 const ProductsDetail = ({ user, cartItems }) => {
   const dispatch = useDispatch();
@@ -59,9 +59,7 @@ const ProductsDetail = ({ user, cartItems }) => {
       </Link>
 
       {product.id && (
-        <ErrorBoundary>
           <Comments productId={product.id} user={user} />
-        </ErrorBoundary>
       )}
     </div>
   );

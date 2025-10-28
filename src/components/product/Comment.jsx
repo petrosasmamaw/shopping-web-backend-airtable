@@ -1,55 +1,32 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "../supabase/supabaseClient";
+import { fetchComments, addComment } from "./commentsAPI";
 
 const Comments = ({ productId, user }) => {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
-
-  const fetchComments = async () => {
-    if (!productId) return;
-    const { data, error } = await supabase
-      .from("comments")
-      .select("id, content, created_at, user_id")
-      .eq("product_id", productId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching comments:", error);
-      setComments([]);
-      return;
-    }
-
-    setComments(data);
-  };
-
-  const addComment = async () => {
-    if (!user) return alert("Login to comment");
-    if (!newComment.trim()) return;
-
-    const { data, error } = await supabase
-      .from("comments")
-      .insert({
-        product_id: productId,
-        user_id: user.id,
-        content: newComment,
-      })
-      .select(); // return inserted row
-
-    if (error) {
-      console.error("Error adding comment:", error);
-    } else {
-      setComments((prev) => [data[0], ...prev]); // show instantly
-      setNewComment("");
-    }
-  };
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchComments();
+    if (!productId) return;
+    setLoading(true);
+    fetchComments(productId)
+      .then(setComments)
+      .finally(() => setLoading(false));
   }, [productId]);
 
+  const handleAddComment = async () => {
+    if (!user) return alert("Please login to comment");
+    if (!newComment.trim()) return;
+
+    const newRec = await addComment(productId, user.id, newComment);
+    setComments((prev) => [newRec, ...prev]);
+    setNewComment("");
+  };
+
   return (
-    <div>
+    <div style={{ marginTop: "2rem" }}>
       <h3>Comments</h3>
+
       {user && (
         <div>
           <input
@@ -57,18 +34,24 @@ const Comments = ({ productId, user }) => {
             onChange={(e) => setNewComment(e.target.value)}
             placeholder="Write a comment..."
           />
-          <button onClick={addComment}>Add</button>
+          <button onClick={handleAddComment}>Add</button>
         </div>
       )}
-      <ul>
-        {comments.map((c) => (
-          <li key={c.id}>
-            <strong>{c.user_id}</strong> —{" "}
-            {new Date(c.created_at).toLocaleString()}
-            <p>{c.content}</p>
-          </li>
-        ))}
-      </ul>
+
+      {loading ? (
+        <p>Loading comments...</p>
+      ) : comments.length > 0 ? (
+        <ul>
+          {comments.map((c) => (
+            <li key={c.id}>
+              <strong>{c.fields?.user_id}</strong> — {c.fields?.created_at || ""}
+              <p>{c.fields?.content}</p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No comments yet.</p>
+      )}
     </div>
   );
 };
