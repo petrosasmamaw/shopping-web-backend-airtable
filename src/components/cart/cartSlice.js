@@ -7,6 +7,7 @@ const initialState = {
   totalPrice: 0,
 };
 
+// Local helper to calculate subtotal and total price
 const calculateTotal = (items) =>
   items.reduce((sum, item) => sum + item.subtotal, 0);
 
@@ -17,6 +18,7 @@ const cartSlice = createSlice({
     addToCart: (state, action) => {
       const item = action.payload;
       const existing = state.items.find((i) => i.id === item.id);
+
       if (existing) {
         existing.quantity += item.quantity || 1;
         existing.subtotal = existing.quantity * existing.price;
@@ -29,12 +31,15 @@ const cartSlice = createSlice({
           subtotal: item.price * (item.quantity || 1),
         });
       }
+
       state.totalPrice = calculateTotal(state.items);
     },
+
     removeFromCart: (state, action) => {
       state.items = state.items.filter((i) => i.id !== action.payload);
       state.totalPrice = calculateTotal(state.items);
     },
+
     decreaseQuantity: (state, action) => {
       const item = state.items.find((i) => i.id === action.payload);
       if (item) {
@@ -47,10 +52,12 @@ const cartSlice = createSlice({
       }
       state.totalPrice = calculateTotal(state.items);
     },
+
     clearCart: (state) => {
       state.items = [];
       state.totalPrice = 0;
     },
+
     setCart: (state, action) => {
       state.items = action.payload;
       state.totalPrice = calculateTotal(state.items);
@@ -75,23 +82,18 @@ export default cartSlice.reducer;
 export const syncCartToSupabase = async (userId, items) => {
   if (!userId) return;
 
-  // Calculate total quantity and price
-  const quantity = items.reduce((sum, item) => sum + item.quantity, 0);
-  const total_price = items.reduce((sum, item) => sum + item.subtotal, 0);
-
+  // Only send allowed fields: user_id, cart_data, updated_at
   const { data, error } = await supabase
     .from("carts")
     .upsert(
       {
         user_id: userId,
         cart_data: items,
-        quantity,
-        total_price,
-        updated_at: new Date().toISOString(), // avoid PGRST204 error
+        updated_at: new Date().toISOString(), // generated columns like total_price are excluded
       },
       { onConflict: "user_id" }
     )
-    .select(); // fetch the updated row
+    .select();
 
   if (error) console.error("Error syncing cart:", error);
   return data;
@@ -104,7 +106,7 @@ export const fetchCartFromSupabase = async (userId) => {
     .from("carts")
     .select("cart_data")
     .eq("user_id", userId)
-    .maybeSingle(); // safer if row doesn't exist yet
+    .single();
 
   if (error) {
     console.error("Error fetching cart:", error);
