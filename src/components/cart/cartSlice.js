@@ -74,22 +74,42 @@ export default cartSlice.reducer;
 // ✅ Supabase Sync Helpers
 export const syncCartToSupabase = async (userId, items) => {
   if (!userId) return;
-  const { error } = await supabase
+
+  // Calculate total quantity and price
+  const quantity = items.reduce((sum, item) => sum + item.quantity, 0);
+  const total_price = items.reduce((sum, item) => sum + item.subtotal, 0);
+
+  const { data, error } = await supabase
     .from("carts")
-    .upsert({ user_id: userId, cart_data: items, updated_at: new Date() });
+    .upsert(
+      {
+        user_id: userId,
+        cart_data: items,
+        quantity,
+        total_price,
+        updated_at: new Date().toISOString(), // avoid PGRST204 error
+      },
+      { onConflict: "user_id" }
+    )
+    .select(); // fetch the updated row
+
   if (error) console.error("Error syncing cart:", error);
+  return data;
 };
 
 export const fetchCartFromSupabase = async (userId) => {
   if (!userId) return [];
+
   const { data, error } = await supabase
     .from("carts")
     .select("cart_data")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle(); // safer if row doesn't exist yet
+
   if (error) {
     console.error("Error fetching cart:", error);
     return [];
   }
+
   return data?.cart_data || [];
 };
